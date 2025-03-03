@@ -1,0 +1,1 @@
+nohup python3 -u RL/agent/high_level.py --dataset 'ETHUSDT' --device 'cuda:3' 2>&1 | tee -a ./ETHUSDT.log &

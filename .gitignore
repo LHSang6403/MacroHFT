@@ -1,0 +1,6 @@
+data/ETHUSDT
+logs/
+**/__pycache__/
+result/high_level
+
+venv
