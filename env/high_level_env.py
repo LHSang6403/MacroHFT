@@ -161,7 +161,7 @@ class Testing_Env(gym.Env):
             self.final_balance = self.pured_balance + self.calculate_value(
                 current_price_information, self.position)
             self.required_money = required_money
-            print("the portfit margine is ",
+            print("the profit margin is ",
                   self.final_balance / self.required_money)
 
         return self.single_state, self.trend_state, self.clf_state.reshape(-1), self.reward, self.terminal, {

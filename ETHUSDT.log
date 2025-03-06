@@ -2,3 +2,75 @@ Namespace(buffer_size=1000000, dataset='ETHUSDT', q_value_memorize_freq=10, batc
 epoch  1
 Namespace(buffer_size=1000000, dataset='ETHUSDT', q_value_memorize_freq=10, batch_size=512, eval_update_freq=512, lr=0.0001, epsilon_start=0.7, epsilon_end=0.3, decay_length=5, update_times=10, gamma=0.99, tau=0.005, transcation_cost=0.0002, back_time_length=1, seed=12345, n_step=1, epoch_number=15, device='cuda:3', alpha=0.5, beta=5, exp='exp1', num_step=10)
 epoch  1
+Traceback (most recent call last):
+  File "/Users/lehoangsang/MacroHFT/RL/agent/high_level.py", line 6, in <module>
+    import torch
+ModuleNotFoundError: No module named 'torch'
+Traceback (most recent call last):
+  File "/Users/lehoangsang/MacroHFT/RL/agent/high_level.py", line 9, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+Traceback (most recent call last):
+  File "/Users/lehoangsang/MacroHFT/RL/agent/high_level.py", line 12, in <module>
+    from torch.utils.tensorboard import SummaryWriter
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/torch/utils/tensorboard/__init__.py", line 1, in <module>
+    import tensorboard
+ModuleNotFoundError: No module named 'tensorboard'
+Traceback (most recent call last):
+  File "/Users/lehoangsang/MacroHFT/RL/agent/high_level.py", line 21, in <module>
+    from MacroHFT.env.high_level_env import Testing_Env, Training_Env
+  File "/Users/lehoangsang/MacroHFT/env/high_level_env.py", line 3, in <module>
+    from gym.utils import seeding
+ModuleNotFoundError: No module named 'gym'
+Namespace(buffer_size=1000000, dataset='ETHUSDT', q_value_memorize_freq=10, batch_size=512, eval_update_freq=512, lr=0.0001, epsilon_start=0.7, epsilon_end=0.3, decay_length=5, update_times=10, gamma=0.99, tau=0.005, transcation_cost=0.0002, back_time_length=1, seed=12345, n_step=1, epoch_number=15, device='cuda:3', alpha=0.5, beta=5, exp='exp1', num_step=10)
+epoch  1
+the portfit margine is  4.32598131914018
+the portfit margine is  nan
+epoch  2
+the portfit margine is  2.177689257761567
+the portfit margine is  -0.03227876632026834
+epoch  3
+the portfit margine is  -0.6687437866536795
+the portfit margine is  -0.1512150431821252
+epoch  4
+the portfit margine is  -0.9502947460942831
+the portfit margine is  -0.09501870388477181
+epoch  5
+the portfit margine is  -0.9451172664124079
+the portfit margine is  -0.09501870388477181
+epoch  6
+the portfit margine is  -0.9426348083402755
+the portfit margine is  -0.22462941607567685
+epoch  7
+the portfit margine is  -0.9833153601374772
+the portfit margine is  -0.22266090594281301
+epoch  8
+the portfit margine is  -0.9826162849094877
+the portfit margine is  -0.22266090594281301
+epoch  9
+the portfit margine is  -0.9815586074404268
+the portfit margine is  -0.22266090594281301
+epoch  10
+the portfit margine is  -0.9858208598035845
+the portfit margine is  -0.22266090594281301
+epoch  11
+the portfit margine is  -0.9827255184210377
+the portfit margine is  -0.22266090594281301
+epoch  12
+the portfit margine is  -0.9596609245853186
+the portfit margine is  -0.11472598904651013
+epoch  13
+the portfit margine is  -0.9579740982545173
+the portfit margine is  -0.11472598904651013
+epoch  14
+the portfit margine is  -0.9647584217992261
+the portfit margine is  -0.11472598904651013
+epoch  15
+the portfit margine is  -0.9201414172307333
+the portfit margine is  -0.11472598904651013
+Traceback (most recent call last):
+  File "/Users/lehoangsang/MacroHFT/RL/agent/high_level.py", line 656, in <module>
+    agent.train()
+  File "/Users/lehoangsang/MacroHFT/RL/agent/high_level.py", line 523, in train
+    torch.save(best_model.state_dict(), best_model_path)
+AttributeError: 'collections.OrderedDict' object has no attribute 'state_dict'
