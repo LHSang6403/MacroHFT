@@ -68,7 +68,7 @@ class Testing_Env(gym.Env):
         self.position = 0
 
     def calculate_value(self, price_information, position):
-        print("high_level_agent->calculate_value(): price_information, position ", price_information, position)
+        print("high_level_agent->calculate_value(): price_information, position ", price_information["close"], position)
 
         return price_information["close"] * position
 
@@ -148,7 +148,7 @@ class Testing_Env(gym.Env):
 
             self.return_rate = return_rate
             self.reward_history.append(self.reward)
-            print("high_level_agent->step(): return_rate ", return_rate)
+            print("high_level_agent->step(): return_rate ", self.return_rate)
 
         if previous_position < position:
             self.buy_size = position - previous_position
@@ -156,7 +156,7 @@ class Testing_Env(gym.Env):
             self.comission_fee_history.append(self.comission_fee * self.buy_size * previous_price_information['close'])
 
             print("high_level_agent->step(): position ", position)
-            print("high_level_agent->step(): buy_size ", buy_size)
+            print("high_level_agent->step(): buy_size ", self.buy_size)
             print("high_level_agent->step(): needed_cash ", needed_cash)
 
             self.needed_money_memory.append(needed_cash)

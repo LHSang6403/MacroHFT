@@ -148,7 +148,7 @@ class Testing_Env(gym.Env):
             self.return_rate = return_rate
             self.reward_history.append(self.reward)
 
-            print("low_level_agent->step(): return_rate: ", return_rate) 
+            print("low_level_agent->step(): return_rate: ", self.return_rate)
 
         if previous_position < position: # nghĩa là agent mua thêm coin
             self.buy_size = position - previous_position # tính số coin mua
