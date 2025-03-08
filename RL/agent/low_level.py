@@ -166,8 +166,14 @@ class DQN(object):
         q_target = batch['reward'] + self.gamma * (1 - batch['terminal']) * self.target_net(batch['next_state'], batch['next_state_trend'], 
                                                     batch['next_previous_action']).gather(-1, a_argmax).squeeze(-1) # Double DQN: chọn action argmax từ eval_net, lấy Q-value từ target_net
 
+        print("low_level_agent->update(): a_argmax ", a_argmax)
+        print("low_level_agent->update(): q_target ", q_target)
+
         q_distribution = self.eval_net(batch['state'], batch['state_trend'], batch['previous_action'])
         q_current = q_distribution.gather(-1, batch['action']).squeeze(-1) # Lấy Q-value của action đã thực hiện
+
+        print("low_level_agent->update(): q_distribution ", q_distribution)
+        print("low_level_agent->update(): q_current ", q_current)
 
         td_error = self.loss_func(q_current, q_target)
 
@@ -202,13 +208,19 @@ class DQN(object):
         previous_action = torch.unsqueeze(
             torch.tensor(info["previous_action"]).long().to(self.device),
             0).to(self.device)
+
+        print("low_level_agent->act(): previous_action ", previous_action)
+
         if np.random.uniform() < (1-self.epsilon): # Epsilon-greedy: với xác suất (1 - epsilon), chọn argmax(Q), ngược lại random {0,1}
             actions_value = self.eval_net(x1, x2, previous_action)
             action = torch.max(actions_value, 1)[1].data.cpu().numpy()
             action = action[0]
+            print("low_level_agent->act(): action ", action)
         else:
             action_choice = [0,1]
             action = random.choice(action_choice)
+            print("low_level_agent->act(): random action ", action)
+
         return action
 
     def act_test(self, state, state_trend, info): # Luôn chọn argmax(Q), không random. Dùng khi validation/test
@@ -219,6 +231,9 @@ class DQN(object):
         actions_value = self.eval_net(x1, x2, previous_action)
         action = torch.max(actions_value, 1)[1].data.cpu().numpy()
         action = action[0]
+
+        print("low_level_agent->act_test(): action, action_value ", action, actions_value)
+
         return action
 
     def train(self):
@@ -236,15 +251,19 @@ class DQN(object):
         best_model = None # lưu state_dict của mô hình tốt nhất
 
         for sample in range(self.epoch_number): # duyệt qua số epoch
-            print('epoch ', epoch_counter + 1)
+            print('low_level_agent->train(): epoch ', epoch_counter + 1)
+
             random_list = self.train_index[self.label] # lấy danh sách chunk index. Shuffle chúng
             random.shuffle(random_list)
             random_position_list = random.choices(range(self.n_action), k=df_number) # random initial action (0 hoặc 1) cho từng chunk
-            print(random_list)
+            
+            print('low_level_agent->train(): random_list ', random_list)
 
             for i in range(df_number):
                 df_index = random_list[i]
-                print("training with df", df_index)
+    
+                print("low_level_agent->train(): training with df", df_index)
+
                 self.df = pd.read_feather(
                     os.path.join(self.train_data_path, "df_{}.feather".format(df_index)))
                 self.eval_net.eval() # đặt mạng ở chế độ evaluation (tắt dropout,...)
@@ -261,15 +280,25 @@ class DQN(object):
                 s, s2, info = train_env.reset()
                 episode_reward_sum = 0 # để cộng dồn reward của mỗi episode
 
+                print("low_level_agent->train(): train_env.s ", s)
+                print("low_level_agent->train(): train_env.s2 ", s2)
+                print("low_level_agent->train(): train_env.info ", info)
+
                 while True:
                     a = self.act(s, s2, info)
                     s_, s2_, r, done, info_ = train_env.step(a) # Môi trường trả về (next_state, reward, done, info_)
+
                     self.replay_buffer.store_transition(s, s2, info['previous_action'], info['q_value'], a, r, s_, s2_, info_['previous_action'],
                                     info_['q_value'], done) # Lưu transition vào ReplayBuffer
                     episode_reward_sum += r
 
                     s, s2, info = s_, s2_, info_
                     step_counter += 1
+
+                    print("low_level_agent->train()->while: train_env.step.s_ ", s_)
+                    print("low_level_agent->train()->while: train_env.step.s2 ", s2)
+                    print("low_level_agent->train()->while: train_env.step.info ", info)
+                    print("low_level_agent->train()->while: train_env.step.done ", done)
 
                     if step_counter % self.eval_update_freq == 0 and step_counter > (
                             self.batch_size + self.n_step): # Mỗi khi step_counter % eval_update_freq == 0, gọi update(...) để train DQN
@@ -297,10 +326,15 @@ class DQN(object):
                                     global_step=self.update_counter,
                                     walltime=None)
                     if done:
+                        print("low_level_agent->train(): done ", done)
+                        print("low_level_agent->train(): episode_reward_sum ", episode_reward_sum)
+                        print("low_level_agent->train(): step_counter ", step_counter)
+
                         break
 
                 episode_counter += 1
                 final_balance, required_money = train_env.final_balance, train_env.required_money
+
                 self.writer.add_scalar(tag="return_rate_train",
                                    scalar_value=final_balance / (required_money),
                                    global_step=episode_counter,
@@ -322,6 +356,10 @@ class DQN(object):
                 epoch_final_balance_train_list.append(final_balance)
                 epoch_required_money_train_list.append(required_money)
                 epoch_reward_sum_train_list.append(episode_reward_sum)
+
+                print ("low_level_agent->train(): final_balance ", final_balance)
+                print ("low_level_agent->train(): required_money ", required_money)
+                print ("low_level_agent->train(): episode_reward_sum ", episode_reward_sum)
 
             epoch_counter += 1 # Mỗi epoch xong, cập nhật epsilon, tính trung bình, lưu model
             self.epsilon = self.epsilon_scheduler.get_epsilon(epoch_counter)
@@ -355,6 +393,12 @@ class DQN(object):
                 walltime=None,
                 )
 
+            print("low_level_agent->train(): epsilon ", self.epsilon)
+            print("low_level_agent->train(): mean_return_rate_train ", mean_return_rate_train)
+            print("low_level_agent->train(): mean_final_balance_train ", mean_final_balance_train)
+            print("low_level_agent->train(): mean_required_money_train ", mean_required_money_train)
+            print("low_level_agent->train(): mean_reward_sum_train ", mean_reward_sum_train)
+
             epoch_path = os.path.join(self.model_path,
                                         "epoch_{}".format(epoch_counter))
             if not os.path.exists(epoch_path):
@@ -370,9 +414,15 @@ class DQN(object):
             return_rate_1 = self.val_cluster(epoch_path, val_path, 1)
             return_rate_eval = (return_rate_0 + return_rate_1) / 2
 
+            print("low_level_agent->train(): return_rate_eval ", return_rate_eval)
+            print("low_level_agent->train(): return_rate_0 ", return_rate_0)
+            print("low_level_agent->train(): return_rate_1 ", return_rate_1)
+
             if return_rate_eval > best_return_rate:
                 best_return_rate = return_rate_eval
                 best_model = self.eval_net.state_dict()
+
+                print("low_level_agent->train(): best_return_rate ", best_return_rate)
                 print("best model updated to epoch ", epoch_counter)
 
             epoch_return_rate_train_list = []
@@ -398,7 +448,7 @@ class DQN(object):
         commission_fee_list = []
 
         for i in range(df_number): # Duyệt qua từng chunk (df_i) trong val_index
-            print("validating on df", df_list[i])
+            print("low_level_agent->val_cluster(): validating on df", df_list[i])
             self.df = pd.read_feather(
                 os.path.join(self.val_data_path, "df_{}.feather".format(df_list[i])))
 
@@ -415,12 +465,23 @@ class DQN(object):
             action_list_episode = []
             reward_list_episode = []
 
+            print("low_level_agent->val_cluster(): val_env.s ", s)
+            print("low_level_agent->val_cluster(): val_env.s2 ", s2)
+            print("low_level_agent->val_cluster(): val_env.info ", info)
+
             while not done: # Chạy act_test(...) (argmax Q) đến khi done
                 a = self.act_test(s, s2, info)
+
                 s_, s2_, r, done, info_ = val_env.step(a)
                 reward_list_episode.append(r)
+
                 s, s2, info = s_, s2_, info_
                 action_list_episode.append(a)
+                
+                print("low_level_agent->val_cluster()->while: val_env.step.a ", a)
+                print("low_level_agent->val_cluster()->while: val_env.step.r ", r)
+                print("low_level_agent->val_cluster()->while: val_env.step.info ", info)
+                print("low_level_agent->val_cluster()->while: val_env.step.done ", done)
 
             portfit_magine, final_balance, required_money, commission_fee = val_env.get_final_return_rate(
                 slient=True)
@@ -431,6 +492,10 @@ class DQN(object):
             final_balance_list.append(final_balance)
             required_money_list.append(required_money)
             commission_fee_list.append(commission_fee)
+
+            print("low_level_agent->val_cluster(): final_balance ", final_balance)
+            print("low_level_agent->val_cluster(): required_money ", required_money)
+            print("low_level_agent->val_cluster(): commission_fee ", commission_fee)
 
         action_list = np.array(action_list)
         reward_list = np.array(reward_list)

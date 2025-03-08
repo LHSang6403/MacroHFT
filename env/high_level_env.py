@@ -67,9 +67,9 @@ class Testing_Env(gym.Env):
         self.previous_position = 0
         self.position = 0
 
-
-
     def calculate_value(self, price_information, position):
+        print("high_level_agent->calculate_value(): price_information, position ", price_information, position)
+
         return price_information["close"] * position
 
     def reset(self):
@@ -89,6 +89,9 @@ class Testing_Env(gym.Env):
         self.comission_fee_history = []
         self.previous_position = self.initial_action * self.max_holding_number
         self.position = self.initial_action * self.max_holding_number
+
+        print("high_level_agent->reset()")
+
         return self.single_state, self.trend_state, self.clf_state.reshape(-1), {
             "previous_action": self.initial_action,
         }
@@ -111,9 +114,14 @@ class Testing_Env(gym.Env):
 
         if previous_position >= position:
             self.sell_size = previous_position - position
+            
+            print("high_level_agent->step(): position ", self.position)
+            print("high_level_agent->step(): sell_size ", self.sell_size)
 
             cash = self.sell_size * previous_price_information['close'] * (1 - self.comission_fee)
             self.comission_fee_history.append(self.comission_fee * self.sell_size * previous_price_information['close'])
+
+            print("high_level_agent->step(): cash ", cash)
 
             self.sell_money_memory.append(cash)
             self.needed_money_memory.append(0)
@@ -124,18 +132,32 @@ class Testing_Env(gym.Env):
                                                  self.position)
             self.reward = current_value + cash - previous_value
 
+            print("high_level_agent->step(): previous_value ", previous_value)
+            print("high_level_agent->step(): current_value ", current_value)
+            print("high_level_agent->step(): reward ", self.reward)
+
             if previous_value == 0:
                 return_rate = 0
             else:
                 return_rate = (current_value + cash -
                                previous_value) / previous_value
+
+                print("high_level_agent->step(): cash ", cash)
+                print("high_level_agent->step(): previous_value ", previous_value)
+                print("high_level_agent->step(): current_value ", current_value)
+
             self.return_rate = return_rate
             self.reward_history.append(self.reward)
+            print("high_level_agent->step(): return_rate ", return_rate)
 
         if previous_position < position:
             self.buy_size = position - previous_position
             needed_cash = self.buy_size * previous_price_information['close'] * (1 + self.comission_fee)
             self.comission_fee_history.append(self.comission_fee * self.buy_size * previous_price_information['close'])
+
+            print("high_level_agent->step(): position ", position)
+            print("high_level_agent->step(): buy_size ", buy_size)
+            print("high_level_agent->step(): needed_cash ", needed_cash)
 
             self.needed_money_memory.append(needed_cash)
             self.sell_money_memory.append(0)
@@ -149,6 +171,11 @@ class Testing_Env(gym.Env):
             return_rate = (current_value - needed_cash -
                            previous_value) / (previous_value + needed_cash)
 
+            print("high_level_agent->step(): previous_value ", previous_value)
+            print("high_level_agent->step(): current_value ", current_value)
+            print("high_level_agent->step(): reward ", self.reward)
+            print("high_level_agent->step(): return_rate ", return_rate)
+
             self.reward_history.append(self.reward)
             self.return_rate = return_rate
             
@@ -161,8 +188,11 @@ class Testing_Env(gym.Env):
             self.final_balance = self.pured_balance + self.calculate_value(
                 current_price_information, self.position)
             self.required_money = required_money
-            print("the profit margin is ",
-                  self.final_balance / self.required_money)
+
+            print("high_level_agent->step(): the profit margin is ", self.final_balance / self.required_money)
+            print("high_level_agent->step(): the final balance is ", self.final_balance)
+            print("high_level_agent->step(): the required money is ", self.required_money)
+            print("high_level_agent->step(): the commission fee is ", commission_fee)
 
         return self.single_state, self.trend_state, self.clf_state.reshape(-1), self.reward, self.terminal, {
             "previous_action": action,
@@ -178,6 +208,11 @@ class Testing_Env(gym.Env):
             balance_list.append(np.sum(true_money[:i + 1]))
         required_money = -np.min(balance_list)
         commission_fee = np.sum(self.comission_fee_history)
+
+        print("high_level_agent->get_final_return_rate(): final_balance ", final_balance)
+        print("high_level_agent->get_final_return_rate(): required_money ", required_money)
+        print("high_level_agent->get_final_return_rate(): commission_fee ", commission_fee)
+
         return final_balance / required_money, final_balance, required_money, commission_fee
 
 
