@@ -119,6 +119,7 @@ class Testing_Env(gym.Env):
         if previous_position >= position: # nghĩa là agent bán bớt (hoặc giữ nguyên) số coin
             self.sell_size = previous_position - position # tính số coin bán, case sell_size=0 là hold
 
+            print("low_level_agent->step(): previous_position: ", self.previous_position)
             print("low_level_agent->step(): position: ", self.position)
             print("low_level_agent->step(): sell_size: ", self.sell_size)
 

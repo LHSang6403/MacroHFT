@@ -115,6 +115,7 @@ class Testing_Env(gym.Env):
         if previous_position >= position:
             self.sell_size = previous_position - position
             
+            print("high_level_agent->step(): previous_position ", self.previous_position)
             print("high_level_agent->step(): position ", self.position)
             print("high_level_agent->step(): sell_size ", self.sell_size)
 
