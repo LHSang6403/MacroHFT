@@ -166,14 +166,14 @@ class DQN(object):
         q_target = batch['reward'] + self.gamma * (1 - batch['terminal']) * self.target_net(batch['next_state'], batch['next_state_trend'], 
                                                     batch['next_previous_action']).gather(-1, a_argmax).squeeze(-1) # Double DQN: chọn action argmax từ eval_net, lấy Q-value từ target_net
 
-        print("low_level_agent->update(): a_argmax ", a_argmax)
-        print("low_level_agent->update(): q_target ", q_target)
+        # print("low_level_agent->update(): a_argmax ", a_argmax)
+        # print("low_level_agent->update(): q_target ", q_target)
 
         q_distribution = self.eval_net(batch['state'], batch['state_trend'], batch['previous_action'])
         q_current = q_distribution.gather(-1, batch['action']).squeeze(-1) # Lấy Q-value của action đã thực hiện
 
-        print("low_level_agent->update(): q_distribution ", q_distribution)
-        print("low_level_agent->update(): q_current ", q_current)
+        # print("low_level_agent->update(): q_distribution ", q_distribution)
+        # print("low_level_agent->update(): q_current ", q_current)
 
         td_error = self.loss_func(q_current, q_target)
 
@@ -282,7 +282,6 @@ class DQN(object):
 
                 print("low_level_agent->train(): train_env.s ", s)
                 print("low_level_agent->train(): train_env.s2 ", s2)
-                print("low_level_agent->train(): train_env.info ", info)
 
                 while True:
                     a = self.act(s, s2, info)
@@ -297,8 +296,6 @@ class DQN(object):
 
                     print("low_level_agent->train()->while: train_env.step.s_ ", s_)
                     print("low_level_agent->train()->while: train_env.step.s2 ", s2)
-                    print("low_level_agent->train()->while: train_env.step.info ", info)
-                    print("low_level_agent->train()->while: train_env.step.done ", done)
 
                     if step_counter % self.eval_update_freq == 0 and step_counter > (
                             self.batch_size + self.n_step): # Mỗi khi step_counter % eval_update_freq == 0, gọi update(...) để train DQN
@@ -467,7 +464,6 @@ class DQN(object):
 
             print("low_level_agent->val_cluster(): val_env.s ", s)
             print("low_level_agent->val_cluster(): val_env.s2 ", s2)
-            print("low_level_agent->val_cluster(): val_env.info ", info)
 
             while not done: # Chạy act_test(...) (argmax Q) đến khi done
                 a = self.act_test(s, s2, info)
@@ -480,8 +476,6 @@ class DQN(object):
                 
                 print("low_level_agent->val_cluster()->while: val_env.step.a ", a)
                 print("low_level_agent->val_cluster()->while: val_env.step.r ", r)
-                print("low_level_agent->val_cluster()->while: val_env.step.info ", info)
-                print("low_level_agent->val_cluster()->while: val_env.step.done ", done)
 
             portfit_magine, final_balance, required_money, commission_fee = val_env.get_final_return_rate(
                 slient=True)
