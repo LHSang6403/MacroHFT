@@ -471,7 +471,7 @@ class DQN(object):
                 self.memory.add(hs, a, q, s, s2, info['previous_action']) # cập nhật “episodicmemory”
                 episode_reward_sum += r
 
-                print("high_level_agent->train()->while: replay_buffer ", replay_buffer)
+                print("high_level_agent->train()->while: replay_buffer ", self.replay_buffer)
                 print("high_level_agent->train()->while: episode_reward_sum ", episode_reward_sum)
 
                 s, s2, s3, info = s_, s2_, s3_, info_
