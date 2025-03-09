@@ -594,9 +594,10 @@ class DQN(object):
 
         best_model_path = os.path.join("./result/high_level", 
                                         '{}'.format(self.dataset), 'best_model.pkl')
-        torch.save(best_model.state_dict(), best_model_path)
+        torch.save(best_model, best_model_path)
         final_result_path = os.path.join("./result/high_level", '{}'.format(self.dataset))
-        self.test_cluster(best_model_path, final_result_path)
+        final_result_path = os.path.join(final_result_path, "val")
+        self.test_cluster(epoch_path, final_result_path)
 
     def val_cluster(self, epoch_path, save_path): # hàm này giúp đánh giá mô hình (val hoặc test), luôn dùng act_test (argmax Q), không update DQN, chỉ ghi lại kết quả
         self.hyperagent.load_state_dict(
