@@ -68,8 +68,6 @@ class Testing_Env(gym.Env):
         self.position = 0
 
     def calculate_value(self, price_information, position):
-        print("high_level_agent->calculate_value(): price_information, position ", price_information["close"], position)
-
         return price_information["close"] * position
 
     def reset(self):

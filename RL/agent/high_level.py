@@ -446,14 +446,7 @@ class DQN(object):
                 q = r + self.gamma * (1 - done) * self.q_estimate(s_, s2_, s3_, info_)
                 q_memory = self.memory.query(hs, a) # tra cứu Q cũ đã lưu cho (hs, action)
 
-                print("high_level_agent->train()->while: a ", a)
-                print("high_level_agent->train()->while: s_ ", s_)
-                print("high_level_agent->train()->while: s2_ ", s2_)
-                print("high_level_agent->train()->while: s3_ ", s3_)
-                print("high_level_agent->train()->while: r ", r)
-                print("high_level_agent->train()->while: done ", done)
-                print("high_level_agent->train()->while: q ", q)
-                print("high_level_agent->train()->while: q_memory ", q_memory)
+                print("high_level_agent->train()->while: a, s, s2, s3, r, done, q, q_memory", a, s_, s2_, s3_, r, done, q, q_memory)
 
                 if np.isnan(q_memory):
                     q_memory = q
@@ -637,11 +630,8 @@ class DQN(object):
             s, s2, s3, info = s_, s2_, s3_, info_ # Cập nhật s, s2, s3, info
             action_list_episode.append(a)
 
-            print("high_level_agent->val_cluster()->while: a ", a)
-            print("high_level_agent->val_cluster()->while: s_ ", s_)
-            print("high_level_agent->val_cluster()->while: s2_ ", s2_)
-            print("high_level_agent->val_cluster()->while: s3_ ", s3_)
-            print("high_level_agent->val_cluster()->while: r ", r)
+            print("high_level_agent->val_cluster()->while: a ", a, s_, s2_, s3_, r)
+
 
         portfit_magine, final_balance, required_money, commission_fee = val_env.get_final_return_rate(
             slient=True) # lấy lãi/lỗ cuối
@@ -719,12 +709,8 @@ class DQN(object):
             s, s2, s3, info = s_, s2_, s3_, info_
             action_list_episode.append(a)
 
-            print("high_level_agent->test_cluster()->while: a ", a)
-            print("high_level_agent->test_cluster()->while: s_ ", s_)
-            print("high_level_agent->test_cluster()->while: s2_ ", s2_)
-            print("high_level_agent->test_cluster()->while: s3_ ", s3_)
-            print("high_level_agent->test_cluster()->while: r ", r)
-            print("high_level_agent->test_cluster()->while: done ", done)
+            print("high_level_agent->test_cluster()->while: a ", a, s_, s2_, s3_, r, done)
+
 
         portfit_magine, final_balance, required_money, commission_fee = test_env.get_final_return_rate(
             slient=True)
