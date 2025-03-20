@@ -1,6 +1,16 @@
 data/ETHUSDT
 logs/
 **/__pycache__/
-result/high_level
+result
 
 venv
+
+ETHUSDT.log
+
+ETHUSDT_slope_1.log
+ETHUSDT_slope_2.log
+ETHUSDT_slope_3.log
+
+ETHUSDT_vol_1.log
+ETHUSDT_vol_2.log
+ETHUSDT_vol_3.log
