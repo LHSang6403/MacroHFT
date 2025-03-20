@@ -1,7 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=decomposition
-#SBATCH --output=decomposition_%j.out
-#SBATCH --error=decomposition_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
