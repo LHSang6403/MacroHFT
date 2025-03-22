@@ -8,14 +8,14 @@
 
 module purge
 
-module load python
+module load python3
 
 python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
 
-nohup python -u preprocess/decomposition.py &
+nohup python3 -u preprocess/decomposition.py &
 
 wait
 
