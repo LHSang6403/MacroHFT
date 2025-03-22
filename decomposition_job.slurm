@@ -8,7 +8,7 @@
 
 module purge
 
-module load python/3.10
+module load python
 
 python -m venv venv
 source venv/bin/activate
