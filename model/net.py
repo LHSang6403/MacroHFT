@@ -58,7 +58,7 @@ class subagent(nn.Module):
 
 
 class hyperagent(nn.Module):
-    def __init__(self, state_dim_1, state_dim_2, action_dim, hidden_dim):
+    def __init__(self, state_dim_1, state_dim_2, action_dim, hidden_dim, num_subagents=6):
         super(hyperagent, self).__init__()
         self.fc1 = nn.Linear(state_dim_1 + state_dim_2, hidden_dim)
         self.fc2 = nn.Linear(2, hidden_dim)
@@ -71,7 +71,7 @@ class hyperagent(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(hidden_dim * 2, hidden_dim * 4),
             nn.GELU(approximate="tanh"),
-            nn.Linear(hidden_dim * 4, 6),
+            nn.Linear(hidden_dim * 4, num_subagents),
             nn.Softmax(dim=1)
         )
         nn.init.zeros_(self.net[-2].weight)

@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/Users/lehoangsang/MacroHFT/RL/agent/low_level_lstm.py", line 1093, in <module>
+    agent.train(
+  File "/Users/lehoangsang/MacroHFT/RL/agent/low_level_lstm.py", line 179, in train
+    raise FileNotFoundError(f"Data directory not found: {self.data_path}")
+FileNotFoundError: Data directory not found: /Users/lehoangsang/data/ETHUSDT
+LSTM Agent Starting...
+Dataset: ETHUSDT
+Model: lstm
+Training mode: True
+Starting training...
