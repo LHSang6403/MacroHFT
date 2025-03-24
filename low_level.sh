@@ -1,5 +1,4 @@
-nohup python -u RL/agent/low_level.py --alpha 1 --clf 'slope' --dataset 'ETHUSDT' --device 'cuda:0' \
-    --label label_1 >./logs/low_level/ETHUSDT/slope_1.log 2>&1 &
+nohup python3 -u RL/agent/low_level.py --alpha 1 --clf 'slope' --dataset 'ETHUSDT' --device 'cuda:0' --label label_1 >./slope_1.log 2>&1 &
 
 nohup python -u RL/agent/low_level.py --alpha 4 --clf 'slope' --dataset 'ETHUSDT' --device 'cuda:1' \
     --label label_2 >./logs/low_level/ETHUSDT/slope_2.log 2>&1 &
