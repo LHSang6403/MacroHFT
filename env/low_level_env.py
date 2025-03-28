@@ -73,35 +73,32 @@ class Testing_Env(gym.Env):
             print("LSTM model loaded and set to evaluation mode")
         self.lstm_prediction = None
 
-    def get_lstm_prediction(self, state): # TODO pass ['open', 'close', 'high', 'low', 'volume'] as input, currently not
+    def get_lstm_prediction(self, state):
         if self.lstm_model is None:
             return None
             
         with torch.no_grad():
-            # Debug prints to see what columns we actually have
-            print("Available columns in tech_indicator_list:", self.tech_indicator_list)
+            # Get OHLCV data from the original DataFrame
+            required_cols = ['open', 'close', 'high', 'low', 'volume']
+            input_data = self.data[required_cols].values
             
-            # Create DataFrame with column names
-            state_df = pd.DataFrame(state, columns=self.tech_indicator_list)
+            x1 = torch.FloatTensor(input_data).unsqueeze(0).to(self.device)
 
-            print("State DataFrame:", state_df.head())
-
-             # Extract OHLCV columns in the correct order
-            # required_cols = ['open', 'close', 'high', 'low', 'volume']
-            # ohlcv_data = state_df[required_cols].values
+            print("low_level_agent->get_lstm_prediction(): input_data", input_data)
             
-            # Take the first five columns
-            first_five_cols = state_df.iloc[:, :5].values
+            # Make prediction
+            predicted_scaled = self.lstm_model(x1)
+            predicted_price = predicted_scaled.item()
             
-            # Convert to tensor with shape (batch_size, seq_len, features)
-            x1 = torch.FloatTensor(first_five_cols).unsqueeze(0).to(self.device)
+            # Get the current close price for reference
+            current_close = self.data.iloc[-1]["close"]
             
-            # Get prediction using the loaded model
-            close_price = self.lstm_model(x1)
+            print("low_level_agent->get_lstm_prediction(): current close price", current_close)
+            print("low_level_agent->get_lstm_prediction(): predicted price in USD", predicted_price)
+            print("low_level_agent->get_lstm_prediction(): predicted price change %", 
+                  ((predicted_price - current_close) / current_close) * 100)
 
-            print("low_level_agent->get_lstm_prediction(): predicted close price", close_price.item())
-
-            return close_price.item()
+            return predicted_price
 
     def calculate_value(self, price_information, position):
         return price_information["close"] * position

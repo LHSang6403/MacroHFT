@@ -355,8 +355,7 @@ class DQN(object):
                 print("low_level_agent->train(): train_env.s2 ", s2)
 
                 while True:
-                    current_price = train_env.get_current_price()
-                    a = self.act(s, s2, info, current_price)
+                    a = self.act(s, s2, info)
                     s_, s2_, r, done, info_ = train_env.step(a) # Môi trường trả về (next_state, reward, done, info_)
 
                     self.replay_buffer.store_transition(s, s2, info['previous_action'], info['q_value'], a, r, s_, s2_, info_['previous_action'],
