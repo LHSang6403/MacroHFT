@@ -11,14 +11,16 @@ import pickle
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
+
+
 warnings.filterwarnings("ignore")
 
 ROOT = str(pathlib.Path(__file__).resolve().parents[3])
 sys.path.append(ROOT)
 sys.path.insert(0, ".")
 
-from MacroHFT.model.net import *
 from MacroHFT.env.low_level_env import Testing_Env, Training_Env
+from MacroHFT.model.net import *
 from MacroHFT.RL.util.utili import get_ada, get_epsilon, LinearDecaySchedule
 from MacroHFT.RL.util.replay_buffer import ReplayBuffer
 
@@ -49,6 +51,12 @@ parser.add_argument("--label",type=str,default="label_1")
 parser.add_argument("--clf",type=str,default="slope")
 parser.add_argument("--alpha",type=float,default="0")
 parser.add_argument("--device",type=str,default="cuda:0")
+parser.add_argument("--use_lstm_predictions", type=bool, default=True, 
+                   help="Whether to use LSTM predictions as observations")
+parser.add_argument("--hidden_size", type=int, default=64, 
+                   help="Hidden size for LSTM model")
+parser.add_argument("--num_layers", type=int, default=2, 
+                   help="Number of layers for LSTM model")
 
 
 def seed_torch(seed):
@@ -65,6 +73,24 @@ def calculate_alpha(diff, k):
     alpha = 16 * (1 - torch.exp(-k * diff))
     return torch.clip(alpha, 0, 16)
 
+class LSTM(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, output_size):
+        super(LSTM, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, output_size)
+        
+    def forward(self, x):
+        # x shape: (batch_size, seq_len, input_size)
+        batch_size = x.size(0)
+        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.device)
+        
+        out, _ = self.lstm(x, (h0, c0))
+        out = self.fc(out[:, -1, :])  # Only use the last output
+        return out
 
 class DQN(object):
     def __init__(self, args):  # 定义DQN的一系列属性
@@ -151,11 +177,35 @@ class DQN(object):
         self.n_step = args.n_step # Số bước (n-step) để tính return trong Q-learning
         self.eval_update_freq = args.eval_update_freq
         self.buffer_size = args.buffer_size
-        self.epsilon_start = args.epsilon_start # Giá trị ϵ ban đầu cho epsilon-greedy (tỉ lệ “random”)
+        self.epsilon_start = args.epsilon_start # Giá trị ϵ ban đầu cho epsilon-greedy (tỉ lệ "random")
         self.epsilon_end = args.epsilon_end # Giá trị ϵ cuối cùng khi quá trình huấn luyện kết thúc
         self.decay_length = args.decay_length # Số epoch (hoặc số bước) để ϵ giảm dần từ epsilon_start về epsilon_end
         self.epsilon_scheduler = LinearDecaySchedule(start_epsilon=self.epsilon_start, end_epsilon=self.epsilon_end, decay_length=self.decay_length)
         self.epsilon = args.epsilon_start
+
+        # Load LSTM model if specified
+        self.lstm_model = None
+        if args.use_lstm_predictions:
+            print("Loading LSTM model...")
+            try:
+                # Load the pre-trained LSTM model directly from LSTM4.ipynb
+                lstm_model_path = os.path.join("result", "low_level", "ETHUSDT", "best_model", "lstm", 
+                                             str(int(0)), "model.pth")
+                # Create a new LSTM model instance
+                self.lstm_model = LSTM(
+                    input_size=5,  # open, close, high, low, volume
+                    hidden_size=args.hidden_size,
+                    num_layers=args.num_layers,
+                    output_size=1
+                ).to(self.device)
+                # Load the state dict into the model
+                self.lstm_model.load_state_dict(torch.load(lstm_model_path, map_location=self.device))
+                self.lstm_model.eval()
+                print(f"Successfully loaded LSTM model from {lstm_model_path}")
+            except Exception as e:
+                print(f"Error loading LSTM model: {e}")
+                print("Training without LSTM predictions")
+                self.lstm_model = None
 
     def update(self, replay_buffer):
         self.eval_net.train()
@@ -208,11 +258,17 @@ class DQN(object):
         previous_action = torch.unsqueeze(
             torch.tensor(info["previous_action"]).long().to(self.device),
             0).to(self.device)
+        
+        # Get LSTM prediction if available in info
+        lstm_prediction = info.get("lstm_prediction")
+        if lstm_prediction is not None:
+            lstm_prediction = torch.tensor(lstm_prediction, dtype=torch.float32).to(self.device)
 
         print("low_level_agent->act(): previous_action ", previous_action)
+        print("low_level_agent->act(): lstm_prediction ", lstm_prediction)
 
         if np.random.uniform() < (1-self.epsilon): # Epsilon-greedy: với xác suất (1 - epsilon), chọn argmax(Q), ngược lại random {0,1}
-            actions_value = self.eval_net(x1, x2, previous_action)
+            actions_value = self.eval_net(x1, x2, previous_action, lstm_prediction)
             action = torch.max(actions_value, 1)[1].data.cpu().numpy()
             action = action[0]
             print("low_level_agent->act(): action ", action)
@@ -228,7 +284,15 @@ class DQN(object):
         x2 = torch.FloatTensor(state_trend).to(self.device)
         previous_action = torch.unsqueeze(
             torch.tensor(info["previous_action"]).long(), 0).to(self.device)
-        actions_value = self.eval_net(x1, x2, previous_action)
+        
+        # Get LSTM prediction if available in info
+        lstm_prediction = info.get("lstm_prediction")
+        if lstm_prediction is not None:
+            lstm_prediction = torch.tensor(lstm_prediction, dtype=torch.float32).to(self.device)
+
+        print("low_level_agent->act_test(): lstm_prediction ", lstm_prediction)
+        
+        actions_value = self.eval_net(x1, x2, previous_action, lstm_prediction)
         action = torch.max(actions_value, 1)[1].data.cpu().numpy()
         action = action[0]
 
@@ -236,7 +300,11 @@ class DQN(object):
 
         return action
 
-    def train(self):
+    def train(self, lstm_model=None):
+        # Use provided LSTM model or the one loaded during initialization
+        if lstm_model is not None:
+            self.lstm_model = lstm_model
+            
         epoch_return_rate_train_list = []
         epoch_final_balance_train_list = []
         epoch_required_money_train_list = []
@@ -247,7 +315,7 @@ class DQN(object):
         episode_counter = 0 # đếm số episode đã chạy
         epoch_counter = 0 # đếm số epoch đã chạy
         self.replay_buffer = ReplayBuffer(args, self.n_state_1, self.n_state_2, self.n_action) # ReplayBuffer để lưu transition (state, action, reward, next_state,...)
-        best_return_rate = -float('inf') # để lưu “tỷ suất lợi nhuận” (return_rate) tốt nhất
+        best_return_rate = -float('inf') # để lưu "tỷ suất lợi nhuận" (return_rate) tốt nhất
         best_model = None # lưu state_dict của mô hình tốt nhất
 
         for sample in range(self.epoch_number): # duyệt qua số epoch
@@ -276,7 +344,10 @@ class DQN(object):
                         back_time_length=self.back_time_length,
                         max_holding_number=self.max_holding_number,
                         initial_action=random_position_list[i],
-                        alpha = 0)
+                        alpha = 0,
+                        lstm_model=self.lstm_model,  # Pass LSTM model to environment
+                        device=self.device      # Pass device to environment)
+                )
                 s, s2, info = train_env.reset()
                 episode_reward_sum = 0 # để cộng dồn reward của mỗi episode
 
@@ -284,7 +355,8 @@ class DQN(object):
                 print("low_level_agent->train(): train_env.s2 ", s2)
 
                 while True:
-                    a = self.act(s, s2, info)
+                    current_price = train_env.get_current_price()
+                    a = self.act(s, s2, info, current_price)
                     s_, s2_, r, done, info_ = train_env.step(a) # Môi trường trả về (next_state, reward, done, info_)
 
                     self.replay_buffer.store_transition(s, s2, info['previous_action'], info['q_value'], a, r, s_, s2_, info_['previous_action'],
@@ -407,8 +479,8 @@ class DQN(object):
             if not os.path.exists(val_path):
                     os.makedirs(val_path)
 
-            return_rate_0 = self.val_cluster(epoch_path, val_path, 0)
-            return_rate_1 = self.val_cluster(epoch_path, val_path, 1)
+            return_rate_0 = self.val_cluster(epoch_path, val_path, 0, self.lstm_model)
+            return_rate_1 = self.val_cluster(epoch_path, val_path, 1, self.lstm_model)
             return_rate_eval = (return_rate_0 + return_rate_1) / 2
 
             print("low_level_agent->train(): return_rate_eval ", return_rate_eval)
@@ -429,9 +501,13 @@ class DQN(object):
 
         best_model_path = os.path.join("./result/low_level", 
                                         '{}'.format(self.dataset), '{}'.format(self.clf), str(self.label), 'best_model.pkl') # Cuối cùng, lưu best_model thành file best_model.pkl
-        torch.save(best_model.state_dict(), best_model_path)
+        torch.save(best_model, best_model_path)
 
-    def val_cluster(self, epoch_path, save_path, initial_action):
+    def val_cluster(self, epoch_path, save_path, initial_action, lstm_model=None):
+        # Use provided LSTM model or the one loaded during initialization
+        if lstm_model is not None:
+            self.lstm_model = lstm_model
+            
         self.eval_net.load_state_dict(
             torch.load(os.path.join(epoch_path, "trained_model.pkl")))
         self.eval_net.eval() # chế độ đánh giá (tắt dropout,...)
@@ -456,7 +532,10 @@ class DQN(object):
                     transcation_cost=self.transcation_cost,
                     back_time_length=self.back_time_length,
                     max_holding_number=self.max_holding_number,
-                    initial_action=initial_action)
+                    initial_action=initial_action,
+                    lstm_model=self.lstm_model,  # Pass LSTM model to environment
+                    device=self.device      # Pass device to environment)
+            )
             s, s2, info = val_env.reset()
             done = False
             action_list_episode = []
@@ -516,5 +595,6 @@ class DQN(object):
 if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
+    
     agent = DQN(args)
     agent.train()
