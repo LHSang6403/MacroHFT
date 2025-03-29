@@ -21,6 +21,7 @@ class subagent(nn.Module):
         super(subagent, self).__init__()
         self.fc1 = nn.Linear(state_dim_1, hidden_dim)
         self.fc2 = nn.Linear(state_dim_2, hidden_dim)
+        self.fc3 = nn.Linear(1, hidden_dim)  # New layer for LSTM prediction
         self.norm = nn.LayerNorm(hidden_dim, elementwise_affine=False, eps=1e-6)
         self.embedding = nn.Embedding(action_dim, hidden_dim)
         self.adaLN_modulation = nn.Sequential(
@@ -43,11 +44,19 @@ class subagent(nn.Module):
     def forward(self, 
                 single_state: torch.tensor,
                 trend_state: torch.tensor,
-                previous_action: torch.tensor,):
+                previous_action: torch.tensor,
+                lstm_prediction: torch.tensor = None):  # Optional LSTM prediction
         action_hidden = self.embedding(previous_action)
         single_state_hidden = self.fc1(single_state)
         trend_state_hidden = self.fc2(trend_state)
-        c = action_hidden + trend_state_hidden
+        
+        # Process LSTM prediction if available
+        if lstm_prediction is not None:
+            lstm_hidden = self.fc3(lstm_prediction.unsqueeze(-1))
+            c = action_hidden + trend_state_hidden + lstm_hidden
+        else:
+            c = action_hidden + trend_state_hidden
+            
         shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
         x = modulate(self.norm(single_state_hidden), shift, scale)
         value = self.value(x)
@@ -58,7 +67,7 @@ class subagent(nn.Module):
 
 
 class hyperagent(nn.Module):
-    def __init__(self, state_dim_1, state_dim_2, action_dim, hidden_dim):
+    def __init__(self, state_dim_1, state_dim_2, action_dim, hidden_dim, num_subagents=6):
         super(hyperagent, self).__init__()
         self.fc1 = nn.Linear(state_dim_1 + state_dim_2, hidden_dim)
         self.fc2 = nn.Linear(2, hidden_dim)
@@ -71,7 +80,7 @@ class hyperagent(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(hidden_dim * 2, hidden_dim * 4),
             nn.GELU(approximate="tanh"),
-            nn.Linear(hidden_dim * 4, 6),
+            nn.Linear(hidden_dim * 4, num_subagents),
             nn.Softmax(dim=1)
         )
         nn.init.zeros_(self.net[-2].weight)

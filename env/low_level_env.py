@@ -20,13 +20,10 @@ from MacroHFT.tools.demonstration import make_q_table_reward
 tech_indicator_list = np.load('./data/feature_list/single_features.npy', allow_pickle=True).tolist()
 tech_indicator_list_trend = np.load('./data/feature_list/trend_features.npy', allow_pickle=True).tolist()
 
-
-
 transcation_cost = 0.0002
 back_time_length = 1
 max_holding_number = 0.01
 alpha = 0
-
 
 class Testing_Env(gym.Env):
     def __init__(
@@ -38,6 +35,8 @@ class Testing_Env(gym.Env):
         back_time_length=back_time_length,
         max_holding_number=max_holding_number,
         initial_action=0,
+        lstm_model=None,
+        device="cpu",
     ):
         self.tech_indicator_list = tech_indicator_list
         self.tech_indicator_list_trend = tech_indicator_list_trend
@@ -65,8 +64,41 @@ class Testing_Env(gym.Env):
         self.previous_position = initial_action * self.max_holding_number
         self.position = initial_action * self.max_holding_number
         self.initial_action = initial_action
+        self.device = device
+        
+        # Initialize LSTM model
+        self.lstm_model = lstm_model
+        if self.lstm_model is not None:
+            self.lstm_model.eval()  # Set to evaluation mode
+            print("LSTM model loaded and set to evaluation mode")
+        self.lstm_prediction = None
 
+    def get_lstm_prediction(self, state):
+        if self.lstm_model is None:
+            return None
+            
+        with torch.no_grad():
+            # Get OHLCV data from the original DataFrame
+            required_cols = ['open', 'close', 'high', 'low', 'volume']
+            input_data = self.data[required_cols].values
+            
+            x1 = torch.FloatTensor(input_data).unsqueeze(0).to(self.device)
 
+            print("low_level_agent->get_lstm_prediction(): input_data", input_data)
+            
+            # Make prediction
+            predicted_scaled = self.lstm_model(x1)
+            predicted_price = predicted_scaled.item()
+            
+            # Get the current close price for reference
+            current_close = self.data.iloc[-1]["close"]
+            
+            print("low_level_agent->get_lstm_prediction(): current close price", current_close)
+            print("low_level_agent->get_lstm_prediction(): predicted price in USD", predicted_price)
+            print("low_level_agent->get_lstm_prediction(): predicted price change %", 
+                  ((predicted_price - current_close) / current_close) * 100)
+
+            return predicted_price
 
     def calculate_value(self, price_information, position):
         return price_information["close"] * position
@@ -88,15 +120,23 @@ class Testing_Env(gym.Env):
         self.comission_fee_history = []
         self.previous_position = self.initial_action * self.max_holding_number
         self.position = self.initial_action * self.max_holding_number
-        self.needed_money_memory.append(self.position *
-                                        self.data.iloc[-1]["close"])
+        self.needed_money_memory.append(self.position * self.data.iloc[-1]["close"])
         self.sell_money_memory.append(0)
+        
+        # Get LSTM prediction
+        self.lstm_prediction = self.get_lstm_prediction(
+            self.single_state
+        )
 
         print("low_level_agent->reset()")
 
         return self.single_state, self.trend_state, {
             "previous_action": self.initial_action,
+            "lstm_prediction": self.lstm_prediction,
         }
+    
+    def get_current_price(self):
+        return self.df.iloc[self.m + 1 - self.stack_length:self.m].iloc[-1]
 
     def step(self, action):
         normlized_action = action
@@ -109,6 +149,11 @@ class Testing_Env(gym.Env):
         current_price_information = self.data.iloc[-1] # Lấy giá (và thông tin khác) tại dòng cuối trong self.data (chính là giá cũ)
         self.single_state = self.data[self.tech_indicator_list].values
         self.trend_state = self.data[self.tech_indicator_list_trend].values
+
+        # Get LSTM prediction for current state
+        self.lstm_prediction = self.get_lstm_prediction(
+            self.single_state
+        )
 
         self.previous_position = previous_position
         self.position = position # Vị thế mới = position (sau action)
@@ -194,6 +239,7 @@ class Testing_Env(gym.Env):
 
         return self.single_state, self.trend_state, self.reward, self.terminal, {
             "previous_action": action,
+            "lstm_prediction": self.lstm_prediction,
         }
 
     def get_final_return_rate(self, slient=False):
@@ -225,10 +271,12 @@ class Training_Env(Testing_Env):
         max_holding_number=max_holding_number,
         initial_action = 0,
         alpha=alpha,
+        lstm_model=None,
+        device="cpu",
     ):
         super(Training_Env,
               self).__init__(df, tech_indicator_list, tech_indicator_list_trend, transcation_cost,
-                             back_time_length, max_holding_number)
+                             back_time_length, max_holding_number, initial_action, lstm_model, device)
         self.q_table = make_q_table_reward(df,
                                            num_action=2,
                                            max_holding=max_holding_number,
