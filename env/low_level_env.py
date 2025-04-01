@@ -92,8 +92,6 @@ class Testing_Env(gym.Env):
                                         self.data.iloc[-1]["close"])
         self.sell_money_memory.append(0)
 
-        print("low_level_agent->reset()")
-
         return self.single_state, self.trend_state, {
             "previous_action": self.initial_action,
         }
@@ -124,8 +122,6 @@ class Testing_Env(gym.Env):
             cash = self.sell_size * previous_price_information['close'] * (1 - self.comission_fee)
             self.comission_fee_history.append(self.comission_fee * self.sell_size * previous_price_information['close']) # ghi lại phí giao dịch
 
-            print("low_level_agent->step(): cash: ", cash)
-
             self.sell_money_memory.append(cash) # lưu tiền thu về từ việc bán coin
             self.needed_money_memory.append(0) # lưu tiền cần thiết để mua coin
             self.position = position
@@ -136,8 +132,6 @@ class Testing_Env(gym.Env):
             self.reward = current_value + cash - previous_value # lãi/lỗ = giá trị mới + tiền bán - giá trị cũ
 
             print("low_level_agent->step(): reward: sell ", self.reward)
-            print("low_level_agent->step(): current_value: sell ", current_value)
-            print("low_level_agent->step(): previous_value: sell ", previous_value)
 
             if previous_value == 0:
                 return_rate = 0
@@ -146,8 +140,6 @@ class Testing_Env(gym.Env):
                                previous_value) / previous_value # Nếu return_rate > 0 return_rate>0 ⇒ lãi (tăng so với giá trị cũ), ngược lại thì lỗ
             self.return_rate = return_rate
             self.reward_history.append(self.reward)
-
-            print("low_level_agent->step(): return_rate: ", self.return_rate)
 
         if previous_position < position: # nghĩa là agent mua thêm coin
             self.buy_size = position - previous_position # tính số coin mua
@@ -170,10 +162,6 @@ class Testing_Env(gym.Env):
             return_rate = (current_value - needed_cash -
                            previous_value) / (previous_value + needed_cash) # Nếu return_rate > 0 return_rate>0 ⇒ lãi (tăng so với giá trị cũ), ngược lại thì lỗ
 
-            print("low_level_agent->step(): reward: buy ", self.reward)
-            print("low_level_agent->step(): current_value: buy ", current_value)
-            print("low_level_agent->step(): previous_value: buy ", previous_value)
-
             self.reward_history.append(self.reward)
             self.return_rate = return_rate
 
@@ -187,10 +175,7 @@ class Testing_Env(gym.Env):
                 current_price_information, self.position) # pured_balance + giá trị coin hiện tại
             self.required_money = required_money
             
-            print("low_level_agent->step(): the portfit margine is ", self.final_balance / self.required_money)
             print("low_level_agent->step(): final_balance: ", self.final_balance)
-            print("low_level_agent->step(): required_money: ", self.required_money)
-            print("low_level_agent->step(): commission_fee: ", commission_fee)
 
         return self.single_state, self.trend_state, self.reward, self.terminal, {
             "previous_action": action,
@@ -209,7 +194,6 @@ class Testing_Env(gym.Env):
 
         print("low_level_agent->get_final_return_rate(): final_balance: ", final_balance)
         print("low_level_agent->get_final_return_rate(): required_money: ", required_money)
-        print("low_level_agent->get_final_return_rate(): commission_fee: ", commission_fee)
 
         return final_balance / required_money, final_balance, required_money, commission_fee
 

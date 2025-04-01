@@ -15,7 +15,7 @@ ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 sys.path.append(ROOT)
 sys.path.insert(0, ".")
 
-from MacroHFT.tools.demonstration import make_q_table_reward
+from tools.demonstration import make_q_table_reward
 
 tech_indicator_list = np.load('./data/feature_list/single_features.npy', allow_pickle=True).tolist()
 tech_indicator_list_trend = np.load('./data/feature_list/trend_features.npy', allow_pickle=True).tolist()
@@ -28,7 +28,7 @@ max_holding_number = 0.01
 alpha = 0
 
 
-class Testing_Env(gym.Env):
+class Testing_Env_Example(gym.Env):
     def __init__(
         self,
         df: pd.DataFrame,
@@ -88,8 +88,6 @@ class Testing_Env(gym.Env):
         self.previous_position = self.initial_action * self.max_holding_number
         self.position = self.initial_action * self.max_holding_number
 
-        print("high_level_agent->reset()")
-
         return self.single_state, self.trend_state, self.clf_state.reshape(-1), {
             "previous_action": self.initial_action,
         }
@@ -131,8 +129,6 @@ class Testing_Env(gym.Env):
                                                  self.position)
             self.reward = current_value + cash - previous_value
 
-            print("high_level_agent->step(): previous_value ", previous_value)
-            print("high_level_agent->step(): current_value ", current_value)
             print("high_level_agent->step(): reward ", self.reward)
 
             if previous_value == 0:
@@ -141,13 +137,8 @@ class Testing_Env(gym.Env):
                 return_rate = (current_value + cash -
                                previous_value) / previous_value
 
-                print("high_level_agent->step(): cash ", cash)
-                print("high_level_agent->step(): previous_value ", previous_value)
-                print("high_level_agent->step(): current_value ", current_value)
-
             self.return_rate = return_rate
             self.reward_history.append(self.reward)
-            print("high_level_agent->step(): return_rate ", self.return_rate)
 
         if previous_position < position:
             self.buy_size = position - previous_position
@@ -170,10 +161,7 @@ class Testing_Env(gym.Env):
             return_rate = (current_value - needed_cash -
                            previous_value) / (previous_value + needed_cash)
 
-            print("high_level_agent->step(): previous_value ", previous_value)
-            print("high_level_agent->step(): current_value ", current_value)
             print("high_level_agent->step(): reward ", self.reward)
-            print("high_level_agent->step(): return_rate ", return_rate)
 
             self.reward_history.append(self.reward)
             self.return_rate = return_rate
@@ -188,10 +176,7 @@ class Testing_Env(gym.Env):
                 current_price_information, self.position)
             self.required_money = required_money
 
-            print("high_level_agent->step(): the profit margin is ", self.final_balance / self.required_money)
             print("high_level_agent->step(): the final balance is ", self.final_balance)
-            print("high_level_agent->step(): the required money is ", self.required_money)
-            print("high_level_agent->step(): the commission fee is ", commission_fee)
 
         return self.single_state, self.trend_state, self.clf_state.reshape(-1), self.reward, self.terminal, {
             "previous_action": action,
@@ -210,12 +195,11 @@ class Testing_Env(gym.Env):
 
         print("high_level_agent->get_final_return_rate(): final_balance ", final_balance)
         print("high_level_agent->get_final_return_rate(): required_money ", required_money)
-        print("high_level_agent->get_final_return_rate(): commission_fee ", commission_fee)
 
         return final_balance / required_money, final_balance, required_money, commission_fee
 
 
-class Training_Env(Testing_Env):
+class Training_Env_Example(Testing_Env):
     def __init__(
         self,
         df: pd.DataFrame,

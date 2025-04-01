@@ -13,15 +13,16 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 warnings.filterwarnings("ignore")
 
-ROOT = str(pathlib.Path(__file__).resolve().parents[3])
+ROOT = str(pathlib.Path(__file__).resolve().parents[2])
+print("ROOT path:", ROOT)
 sys.path.append(ROOT)
 sys.path.insert(0, ".")
 
-from MacroHFT.model.net import *
-from MacroHFT.env.high_level_env import Testing_Env, Training_Env
-from MacroHFT.RL.util.utili import get_ada, get_epsilon, LinearDecaySchedule
-from MacroHFT.RL.util.replay_buffer import ReplayBuffer_High
-from MacroHFT.RL.util.memory import episodicmemory
+from model.net import *
+from env.high_level_env import Testing_Env, Training_Env
+from RL.util.utili import get_ada, get_epsilon, LinearDecaySchedule
+from RL.util.replay_buffer import ReplayBuffer_High
+from RL.util.memory import episodicmemory
 
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -75,11 +76,11 @@ class DQN(object):
         self.result_path = os.path.join("./result/high_level", '{}'.format(args.dataset), args.exp)
         self.model_path = os.path.join(self.result_path,
                                        "seed_{}".format(self.seed))
-        self.train_data_path = os.path.join(ROOT, "MacroHFT",
+        self.train_data_path = os.path.join(ROOT,
                                         "data", args.dataset, "whole")
-        self.val_data_path = os.path.join(ROOT, "MacroHFT",
+        self.val_data_path = os.path.join(ROOT,
                                         "data", args.dataset, "whole")
-        self.test_data_path = os.path.join(ROOT, "MacroHFT",
+        self.test_data_path = os.path.join(ROOT,
                                         "data", args.dataset, "whole")
         self.dataset=args.dataset
         self.num_step = args.num_step
@@ -147,7 +148,7 @@ class DQN(object):
             "./result/low_level/ETHUSDT/best_model/vol/3/best_model.pkl"
         ]
 
-        # Load trọng số (state_dict) từ file best_model.pkl (đã train ở “low_level”)
+        # Load trọng số (state_dict) từ file best_model.pkl (đã train ở "low_level")
         self.slope_1.load_state_dict(
             torch.load(model_list_slope[0], map_location=self.device))
         self.slope_2.load_state_dict(
@@ -181,7 +182,7 @@ class DQN(object):
             2: self.vol_3
         }
 
-        self.hyperagent = hyperagent(self.n_state_1, self.n_state_2, self.n_action, 32).to(self.device) # mạng L2 “phối hợp” Q-value 6 sub-agent (ra vector trọng số w)
+        self.hyperagent = hyperagent(self.n_state_1, self.n_state_2, self.n_action, 32).to(self.device) # mạng L2 "phối hợp" Q-value 6 sub-agent (ra vector trọng số w)
         self.hyperagent_target = hyperagent(self.n_state_1, self.n_state_2, self.n_action, 32).to(self.device) # bản sao target để tính Q-target (Double DQN)
         self.hyperagent_target.load_state_dict(self.hyperagent.state_dict())
         self.update_times = args.update_times # số lần update liên tiếp mỗi khi đủ điều kiện
@@ -201,17 +202,14 @@ class DQN(object):
         self.epsilon = args.epsilon_start
         self.memory = episodicmemory(4320, 5, self.n_state_1, self.n_state_2, 64, self.device)
 
-    # vector trọng số (được “hyperagent” sinh ra), có shape [batch, 6], đại diện cho mức độ “tin tưởng” 6 sub-agent (3 slope + 3 vol)
+    # vector trọng số (được "hyperagent" sinh ra), có shape [batch, 6], đại diện cho mức độ "tin tưởng" 6 sub-agent (3 slope + 3 vol)
     # danh sách Q-value từ 6 sub-agent (mỗi sub-agent ra [batch, action_dim]). Ở đây action_dim = 2, nên mỗi sub-agent cho [batch, 2]
-    # hàm này là bước “trộn” Q-value của nhiều sub-agent để ra một Q-value cuối, giúp mô hình “hyperagent” khai thác những gì 6 sub-agent đã học
+    # hàm này là bước "trộn" Q-value của nhiều sub-agent để ra một Q-value cuối, giúp mô hình "hyperagent" khai thác những gì 6 sub-agent đã học
     def calculate_q(self, w, qs):
         q_tensor = torch.stack(qs)
         q_tensor = q_tensor.permute(1, 0, 2)
         weights_reshaped = w.view(-1, 1, 6)
         combined_q = torch.bmm(weights_reshaped, q_tensor).squeeze(1) # torch.bmm(A, B) thực hiện nhân ma trận theo batch (3D)
-
-        print("high_level_agent->calculate_q(): weights_reshaped ", weights_reshaped)
-        print("high_level_agent->calculate_q(): combined_q ", combined_q)
 
         return combined_q
 
@@ -225,8 +223,6 @@ class DQN(object):
         # Trong Double DQN, ta chọn argmax từ mạng eval, nhưng lấy Q-value từ mạng target
 
         print("high_level_agent->update(): w_current ", w_current)
-        print("high_level_agent->update(): w_next ", w_next)
-        print("high_level_agent->update(): w_next_ ", w_next_)
 
         # danh sách 6 Q-value (mỗi sub-agent 1 Q-value) cho state hiện tại. Mỗi phần tử có shape [batch_size, n_action]
         qs_current = [
@@ -246,9 +242,6 @@ class DQN(object):
                     self.vol_agents[2](batch['next_state'], batch['next_state_trend'], batch['next_previous_action'])
         ]
 
-        # print("high_level_agent->update(): qs_current ", qs_current)
-        # print("high_level_agent->update(): qs_next ", qs_next)
-
         q_distribution = self.calculate_q(w_current, qs_current)
         q_current = q_distribution.gather(-1, batch['action']).squeeze(-1) # Q-value tương ứng action đã thực hiện
 
@@ -256,17 +249,8 @@ class DQN(object):
         q_nexts = self.calculate_q(w_next, qs_next) # Q-value gộp từ mạng target (w_next)
         q_target = batch['reward'] + self.gamma * (1 - batch['terminal']) * q_nexts.gather(-1, a_argmax).squeeze(-1)
 
-        # print("high_level_agent->update(): q_distribution ", q_distribution)
-        # print("high_level_agent->update(): q_current ", q_current)
-        # print("high_level_agent->update(): a_argmax ", a_argmax)
-        # print("high_level_agent->update(): q_nexts ", q_nexts)
-        # print("high_level_agent->update(): q_target ", q_target)
-
         td_error = self.loss_func(q_current, q_target) # MSE giữa q_current và q_target (giống DQN bình thường)
-        memory_error = self.loss_func(q_current, batch['q_memory']) # MSE giữa q_current và batch['q_memory'], q_memory có thể là “Q-value” đã lưu trong “episodic memory”
-        
-        # print("high_level_agent->update(): td_error ", td_error)
-        # print("high_level_agent->update(): memory_error ", memory_error)
+        memory_error = self.loss_func(q_current, batch['q_memory']) # MSE giữa q_current và batch['q_memory'], q_memory có thể là "Q-value" đã lưu trong "episodic memory"
 
         demonstration = batch['demo_action']
         KL_loss = F.kl_div(
@@ -299,10 +283,6 @@ class DQN(object):
             torch.tensor(info["previous_action"]).long().to(self.device),
             0).to(self.device)
 
-        print("high_level_agent->act(): x1 ", x1)
-        print("high_level_agent->act(): x2 ", x2)
-        print("high_level_agent->act(): x3 ", x3)
-
         if np.random.uniform() < (1-self.epsilon): # Với xác suất (1 - epsilon), agent chọn action argmax Q (exploit)
             qs = [
                     self.slope_agents[0](x1, x2, previous_action),
@@ -312,7 +292,7 @@ class DQN(object):
                     self.vol_agents[1](x1, x2, previous_action),
                     self.vol_agents[2](x1, x2, previous_action)
             ]
-            w = self.hyperagent(x1, x2, x3, previous_action) # Gọi 6 sub-agent (3 slope, 3 vol) để lấy Q-value riêng. Mỗi sub-agent trả về [1, 2] (vì batch_size=1, action_dim=2). Mạng “hyperagent” xuất ra vector trọng số [1, 6] (6 sub-agent)
+            w = self.hyperagent(x1, x2, x3, previous_action) # Gọi 6 sub-agent (3 slope, 3 vol) để lấy Q-value riêng. Mỗi sub-agent trả về [1, 2] (vì batch_size=1, action_dim=2). Mạng "hyperagent" xuất ra vector trọng số [1, 6] (6 sub-agent)
             actions_value = self.calculate_q(w, qs) # gộp Q-value 6 sub-agent thành [1, 2] (2 action)
             action = torch.max(actions_value, 1)[1].data.cpu().numpy()
             action = action[0]
@@ -342,11 +322,6 @@ class DQN(object):
                     self.vol_agents[2](x1, x2, previous_action)
             ]
 
-            print("high_level_agent->act_test(): x1 ", x1)
-            print("high_level_agent->act_test(): x2 ", x2)
-            print("high_level_agent->act_test(): x3 ", x3)
-            print("high_level_agent->act_test(): previous_action ", previous_action)
-
             w = self.hyperagent(x1, x2, x3, previous_action)
             actions_value = self.calculate_q(w, qs)
             action = torch.max(actions_value, 1)[1].data.cpu().numpy()
@@ -373,19 +348,10 @@ class DQN(object):
                 self.vol_agents[2](x1, x2, previous_action)
         ]
 
-        print("high_level_agent->q_estimate(): x1 ", x1)
-        print("high_level_agent->q_estimate(): x2 ", x2)
-        print("high_level_agent->q_estimate(): x3 ", x3)
-        print("high_level_agent->q_estimate(): previous_action ", previous_action)
-
         # Tính trọng số hyperagent, gộp Q-value
         w = self.hyperagent(x1, x2, x3, previous_action)
         actions_value = self.calculate_q(w, qs)
         q = torch.max(actions_value, 1)[0].detach().cpu().numpy() # Lấy Q-value lớn nhất (theo action)
-
-        print("high_level_agent->q_estimate(): w ", w)
-        print("high_level_agent->q_estimate(): actions_value ", actions_value)
-        print("high_level_agent->q_estimate(): q ", q)
 
         return q
 
@@ -395,10 +361,6 @@ class DQN(object):
         previous_action = torch.unsqueeze(
             torch.tensor(info["previous_action"]).long().to(self.device),
             0).to(self.device)
-
-        print("high_level_agent->calculate_hidden(): x1 ", x1)
-        print("high_level_agent->calculate_hidden(): x2 ", x2)
-        print("high_level_agent->calculate_hidden(): previous_action ", previous_action)
 
         with torch.no_grad(): # tắt gradient (không cập nhật)
             hs = self.hyperagent.encode(x1, x2, previous_action).cpu().numpy() # hidden state (vector) của hyperagent, shape [batch, hidden_dim * 2] hoặc tương tự        
@@ -414,7 +376,7 @@ class DQN(object):
         epoch_counter = 0 # đếm số epoch đã xong
         best_return_rate = -float('inf') # lưu trữ giá trị tốt nhất (để so sánh và cập nhật best model)
         best_model = None
-        self.replay_buffer = ReplayBuffer_High(args, self.n_state_1, self.n_state_2, self.n_action) # ReplayBuffer dành cho high-level agent (có thêm field “q_memory”, “demo_action”,… so với ReplayBuffer thường)
+        self.replay_buffer = ReplayBuffer_High(args, self.n_state_1, self.n_state_2, self.n_action) # ReplayBuffer dành cho high-level agent (có thêm field "q_memory", "demo_action",… so với ReplayBuffer thường)
 
         for sample in range(self.epoch_number):
             print('high_level_agent->train() epoch ', epoch_counter + 1)
@@ -434,19 +396,13 @@ class DQN(object):
                     alpha = 0)
             s, s2, s3, info = train_env.reset()
             episode_reward_sum = 0
-
-            print("high_level_agent->train(): s ", s)
-            print("high_level_agent->train(): s2 ", s2)
-            print("high_level_agent->train(): s3 ", s3)
             
             while True:
-                a = self.act(s, s2, s3, info) # agent chọn action 0/1, dùng “hyperagent” + sub-agent Q-value gộp
+                a = self.act(s, s2, s3, info) # agent chọn action 0/1, dùng "hyperagent" + sub-agent Q-value gộp
                 s_, s2_, s3_, r, done, info_ = train_env.step(a) # environment thực hiện action → trả về next_state, reward, done, info_
                 hs = self.calculate_hidden(s, s2, info) # tính vector ẩn (embedding) của hyperagent (chưa qua net) cho state hiện tại
                 q = r + self.gamma * (1 - done) * self.q_estimate(s_, s2_, s3_, info_)
                 q_memory = self.memory.query(hs, a) # tra cứu Q cũ đã lưu cho (hs, action)
-
-                print("high_level_agent->train()->while: a, s, s2, s3, r, done, q, q_memory", a, s_, s2_, s3_, r, done, q, q_memory)
 
                 if np.isnan(q_memory):
                     q_memory = q
@@ -454,10 +410,9 @@ class DQN(object):
                 # lưu transition (state, action, reward, next_state, done, q_memory, etc.) vào ReplayBuffer
                 self.replay_buffer.store_transition(s, s2, s3, info['previous_action'], info['q_value'], a, r, s_, s2_, s3_, info_['previous_action'],
                                 info_['q_value'], done, q_memory)
-                self.memory.add(hs, a, q, s, s2, info['previous_action']) # cập nhật “episodicmemory”
+                self.memory.add(hs, a, q, s, s2, info['previous_action']) # cập nhật "episodicmemory"
                 episode_reward_sum += r
 
-                # print("high_level_agent->train()->while: replay_buffer ", self.replay_buffer)
                 print("high_level_agent->train()->while: episode_reward_sum ", episode_reward_sum)
 
                 s, s2, s3, info = s_, s2_, s3_, info_
@@ -497,7 +452,6 @@ class DQN(object):
 
                 if done:
                     print("high_level_agent->train()->while: done ", done)
-                    print("high_level_agent->train()->while: episode_reward_sum ", episode_reward_sum)
                     break
 
             episode_counter += 1
@@ -533,10 +487,8 @@ class DQN(object):
             mean_required_money_train = np.mean(epoch_required_money_train_list)
             mean_reward_sum_train = np.mean(epoch_reward_sum_train_list)
 
-            print("high_level_agent->train(): mean_return_rate_train ", mean_return_rate_train)
             print("high_level_agent->train(): mean_final_balance_train ", mean_final_balance_train)
             print("high_level_agent->train(): mean_required_money_train ", mean_required_money_train)
-            print("high_level_agent->train(): mean_reward_sum_train ", mean_reward_sum_train)
 
             self.writer.add_scalar(
                     tag="epoch_return_rate_train",
@@ -578,7 +530,6 @@ class DQN(object):
             if return_rate_eval > best_return_rate: # Nếu tốt hơn best_return_rate, cập nhật best_return_rate và best_model
                 best_return_rate = return_rate_eval
                 best_model = self.hyperagent.state_dict()
-                print("high_level_agent->train(): best_return_rate ", best_return_rate)
 
             epoch_return_rate_train_list = []
             epoch_final_balance_train_list = []
@@ -619,10 +570,6 @@ class DQN(object):
         action_list_episode = []
         reward_list_episode = []
 
-        print("high_level_agent->val_cluster(): s ", s)
-        print("high_level_agent->val_cluster(): s2 ", s2)
-        print("high_level_agent->val_cluster(): s3 ", s3)
-
         while not done:
             a = self.act_test(s, s2, s3, info) # luôn chọn argmax Q, không epsilon-greedy
             s_, s2_, s3_, r, done, info_ = val_env.step(a) # environment chạy step => next_state, reward, done, etc
@@ -630,18 +577,13 @@ class DQN(object):
             s, s2, s3, info = s_, s2_, s3_, info_ # Cập nhật s, s2, s3, info
             action_list_episode.append(a)
 
-            print("high_level_agent->val_cluster()->while: a ", a, s_, s2_, s3_, r)
-
-
         portfit_magine, final_balance, required_money, commission_fee = val_env.get_final_return_rate(
             slient=True) # lấy lãi/lỗ cuối
 
         final_balance = val_env.final_balance
 
-        print("high_level_agent->val_cluster(): portfit_magine ", portfit_magine)
         print("high_level_agent->val_cluster(): final_balance ", final_balance)
         print("high_level_agent->val_cluster(): required_money ", required_money)
-        print("high_level_agent->val_cluster(): commission_fee ", commission_fee)
 
         action_list.append(action_list_episode) # lưu thành NumPy array
         reward_list.append(reward_list_episode)
@@ -665,8 +607,6 @@ class DQN(object):
                 commission_fee_list)
 
         return_rate = final_balance / required_money
-
-        print("high_level_agent->val_cluster(): return_rate ", return_rate)
 
         return return_rate # dùng so sánh với best_return_rate
 
@@ -698,19 +638,12 @@ class DQN(object):
         action_list_episode = []
         reward_list_episode = []
 
-        print("high_level_agent->test_cluster(): s ", s)
-        print("high_level_agent->test_cluster(): s2 ", s2)
-        print("high_level_agent->test_cluster(): s3 ", s3)
-
         while not done:
             a = self.act_test(s, s2, s3, info)
             s_, s2_, s3_, r, done, info_ = test_env.step(a)
             reward_list_episode.append(r)
             s, s2, s3, info = s_, s2_, s3_, info_
             action_list_episode.append(a)
-
-            print("high_level_agent->test_cluster()->while: a ", a, s_, s2_, s3_, r, done)
-
 
         portfit_magine, final_balance, required_money, commission_fee = test_env.get_final_return_rate(
             slient=True)
@@ -729,11 +662,8 @@ class DQN(object):
         required_money_list = np.array(required_money_list)
         commission_fee_list = np.array(commission_fee_list)
 
-        print("high_level_agent->test_cluster(): action_list ", action_list)
-        print("high_level_agent->test_cluster(): reward_list ", reward_list)
         print("high_level_agent->test_cluster(): final_balance_list ", final_balance_list)
         print("high_level_agent->test_cluster(): required_money_list ", required_money_list)
-        print("high_level_agent->test_cluster(): commission_fee_list ", commission_fee_list)
 
         np.save(os.path.join(save_path, "action.npy"), action_list)
         np.save(os.path.join(save_path, "reward.npy"), reward_list)

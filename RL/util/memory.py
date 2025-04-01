@@ -9,7 +9,7 @@ import sys
 ROOT = str(pathlib.Path(__file__).resolve().parents[3])
 sys.path.append(ROOT)
 sys.path.insert(0, ".")
-from MacroHFT.model.net import *
+from model.net import *
 
 
 def custom_kernel(h, hi):
