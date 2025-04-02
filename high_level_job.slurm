@@ -2,9 +2,9 @@
 #SBATCH --job-name=high_level
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=1
 #SBATCH --mem=24G
-#SBATCH --time=12:00:00
+#SBATCH --time=120:00:00
 #SBATCH --gres=gpu:1
 
 module purge
